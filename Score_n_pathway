@@ -1,0 +1,27 @@
+library(WebGestaltR)
+
+data <- read_excel("D:/U1109/data.xlsx", sheet = 'brut')
+
+write.table(data.frame(Gene=data$SYMBOL, Score=apply(data[,c("R2_Teratome", "A3_Prognome", "N1_Melanome")], 1, 
+                                                     function(x) as.numeric(!is.na(x))%*%c(1,2,3))), 
+            file = "D:/U1109/venn_scores.rnk",
+            row.names = F,
+            col.names = F,
+            quote = F)
+
+pw_list = c("pathway_KEGG",
+            "pathway_Reactome",
+            "pathway_Wikipathway",
+            "pathway_Wikipathway_cancer")
+
+for(p in pw_list){
+    dir.create(paste0(c("D:/U1109/GSEA",p), collapse = "/"))
+    
+    WebGestaltR(enrichMethod="GSEA", 
+                organism="hsapiens",
+                enrichDatabase=p, 
+                interestGeneFile=paste0("D:/U1109/venn_scores.rnk"),
+                interestGeneType="genesymbol", 
+                sigMethod="top", topThr=10, minNum=5,
+                outputDirectory=paste0(c("D:/U1109/GSEA",p), collapse = "/"))
+}
