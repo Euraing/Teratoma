@@ -1,0 +1,159 @@
+#!/users/soft/anaconda3/bin/python
+
+#####script fusionne les variants vardict et mutect2 + filtre
+
+import sys,os,glob,argparse,re,ntpath, random
+
+
+
+name_project =  'LYMP_193516MH_DNA_T' #'LYMP_21H01288_M_DNA_T' #'LYMP_20H02695_DNA_T'#'LYMP_19H22950_DNA_T' #
+
+mutect_file = open (name_project+'-mutect2.csv','r')
+vardict_file = open (name_project+'-vardict.csv','r')
+final_file = open (name_project [:-1]+'T.csv','w')
+
+
+######## Au depart, filtrer les vardicts
+
+nbtotal_vardict = 0
+nbtotal_vardict_filtre = 0
+conseq_filtr = ["intron_variant","5_prime_UTR_variant","3_prime_UTR_variant","intergenic_variant","synonymous_variant","downstream_gene_variant", "intron_variant&non_coding_transcript_variant","non_coding_transcript_exon_variant","upstream_gene_variant","splice_region_variant&intron_variant","intron_variant&NMD_transcript_variant","3_prime_UTR_variant&NMD_transcript_variant" ]
+
+vardict_dict = dict()
+
+for vardict_line in vardict_file:
+
+    splvardict_line = vardict_line.split("\t")
+
+    if splvardict_line[0].startswith('RSID'): #nom 1ere colonne
+
+        delimiter = "\t"
+        #lst=splvardict_line [0:119]
+        lst=splvardict_line [0:8] + splvardict_line [9:113]
+
+        lst.append(splvardict_line [113].replace ("\n",""))
+        lst.append("FILTER\tVardict\tMutect2\t\n")
+
+        single_str = delimiter.join(lst)
+
+        final_file.write (single_str)
+
+
+        for n in splvardict_line:  #selectionne spécifiquement la colonne sans prendre compte du nom de l'échantillon
+            if (re.search ('^ALT_COVERAGE',n) and re.search('_DNA_C$',n) and not re.search('PERCENT',n)):
+                alt_cover = splvardict_line.index(n)
+
+
+
+        chrom = splvardict_line.index(str('CHROM'))
+        pos = splvardict_line.index(str('POS'))
+
+        ref = splvardict_line.index(str('REF'))
+        alt = splvardict_line.index(str('ALT'))
+        filt_col = splvardict_line.index(str('FILTER'))
+        conseq = splvardict_line.index(str('Consequence'))
+
+        depth_t = 102 #numero de colonne de profondeur de séquençage total sur la tumeur
+        depth_c = 103 #numero de colonne de profondeur de séquençage total sur le ctrl
+
+        alt_t = 106 #numero de colonne du nombre de read alternatif dans la tumeur
+        alt_c = 107 #numero de colonne du nombre de read alternatif dans le ctrl
+        max_af = 71 #numero de colonne de la fréquence observée du variant dans les DB
+
+
+    else:
+        nbtotal_vardict += 1
+        jangerpos_vardict = str(splvardict_line [chrom] +":"+ str(splvardict_line [pos])+ "-" + str(splvardict_line [ref]) + "-" + str(splvardict_line [alt]))
+
+
+        if int (splvardict_line [alt_cover]) == 0 and str(splvardict_line [filt_col]) == "PASS" and str(splvardict_line [conseq]) not in conseq_filtr and int (depth_t) > 10 and int (depth_c) > 10 and int (alt_t) > 4  : #ici c'est pour faire le tri de vardict
+
+            newlist=splvardict_line [0:8] + splvardict_line [9:113]
+
+            newlist.append(splvardict_line [113].replace ("\n",""))
+            newlist.append(splvardict_line [8])
+            newlist.append("1\t\n") #ajoute 1 si variant présent dans vardict
+
+            nbtotal_vardict_filtre += 1
+            vardict_dict [jangerpos_vardict] = newlist
+
+vardict_file.close ()
+
+
+
+
+################ meme principe avec mutect2
+
+
+nbtotal_mutect = 0
+nb_commun = 0
+
+
+for mutect_line in mutect_file:
+
+    splmutect_line = mutect_line.split("\t")
+
+    if splmutect_line[0].startswith('RSID'): #nom 1ere colonne
+
+        for n in splmutect_line:
+
+
+            if (re.search ('^ALT_COVERAGE',n) and re.search('_DNA_C$',n) and not re.search('PERCENT',n)): #recherche le nom de colonne débutant par ALT_coverage et finissant par DNA_C et sans Percent
+                alt_cover = splmutect_line.index(n)
+
+
+        chrom = splmutect_line.index(str('CHROM'))
+        pos = splmutect_line.index(str('POS'))
+
+        ref = splmutect_line.index(str('REF'))
+        alt = splmutect_line.index(str('ALT'))
+
+        filt_col = splmutect_line.index(str('FILTER'))
+        conseq = splmutect_line.index(str('Consequence'))
+
+    else:
+        nbtotal_mutect += 1
+        jangerpos_mutect = str(splmutect_line [chrom] +":"+ str(splmutect_line [pos])+ "-" + str(splmutect_line [ref]) + "-" + str(splmutect_line [alt]))
+
+        if int (splmutect_line [alt_cover]) == 0 and str(splmutect_line [filt_col]) == "PASS" and str(splmutect_line [conseq]) not in conseq_filtr and int (depth_t) > 10 and int (depth_c) > 10 and int (alt_t) > 4  :
+
+
+            if jangerpos_mutect in vardict_dict:
+                newmutlist=vardict_dict [jangerpos_mutect]
+                newmutlist= newmutlist [:-1]
+                newmutlist.append("1\t1\n")
+                vardict_dict [jangerpos_mutect] = newmutlist
+
+                nb_commun += 1
+
+            elif jangerpos_mutect not in vardict_dict:
+
+
+                newmutlist=splmutect_line [0:8] + splmutect_line [9:113]
+                newmutlist.append(splmutect_line [113].replace ("\n",""))
+                newmutlist.append(splmutect_line [8])
+                newmutlist.append("\t1\n")
+
+
+                vardict_dict [jangerpos_mutect] = newmutlist
+
+
+###### utilisation du dico pour écrire le fichier final
+
+for e in sorted (vardict_dict) :
+
+    delimiter = "\t"
+    single_str = delimiter.join(vardict_dict [e])
+    final_file.write (str(single_str))
+
+
+
+print (nbtotal_vardict)
+print (nbtotal_vardict_filtre)
+
+print (nbtotal_mutect)
+print (nb_commun)
+
+
+mutect_file.close ()
+final_file.close ()
