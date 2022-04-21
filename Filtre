@@ -65,8 +65,11 @@ for vardict_line in vardict_file:
         nbtotal_vardict += 1
         jangerpos_vardict = str(splvardict_line [chrom] +":"+ str(splvardict_line [pos])+ "-" + str(splvardict_line [ref]) + "-" + str(splvardict_line [alt]))
 
-
-        if int (splvardict_line [alt_cover]) == 0 and str(splvardict_line [filt_col]) == "PASS" and str(splvardict_line [conseq]) not in conseq_filtr and int (depth_t) > 10 and int (depth_c) > 10 and int (alt_t) > 4  : #ici c'est pour faire le tri de vardict
+         if int (splvardict_line [alt_cover]) == 0 and str(splvardict_line [filt_col]) == "PASS" and str(splvardict_line [conseq]) not in conseq_filtr and int (splvardict_line [depth_t]) > 10 and int (splvardict_line [depth_c]) > 10 and int (splvardict_line [alt_t]) > 4 and len(splvardict_line [ref]) < 4 and len(splvardict_line [alt]) <4: #ici c'est pour faire le tri de vardict
+                    print (splvardict_line )
+                    if (splvardict_line [max_af]):
+                        if float (splvardict_line [max_af]) > 0.01: #elimine les variants frequent (>1 pourcent)
+                            continue
 
             newlist=splvardict_line [0:8] + splvardict_line [9:113]
 
@@ -115,9 +118,11 @@ for mutect_line in mutect_file:
         nbtotal_mutect += 1
         jangerpos_mutect = str(splmutect_line [chrom] +":"+ str(splmutect_line [pos])+ "-" + str(splmutect_line [ref]) + "-" + str(splmutect_line [alt]))
 
-        if int (splmutect_line [alt_cover]) == 0 and str(splmutect_line [filt_col]) == "PASS" and str(splmutect_line [conseq]) not in conseq_filtr and int (depth_t) > 10 and int (depth_c) > 10 and int (alt_t) > 4  :
-
-
+        if int (splmutect_line [alt_cover]) == 0 and str(splmutect_line [filt_col]) == "PASS" and str(splmutect_line [conseq]) not in conseq_filtr and int (splmutect_line [depth_t]) > 10 and int (splmutect_line [depth_c]) > 10 and int (splmutect_line [alt_t]) > 4  and len(splmutect_line [ref]) < 4 and len(splmutect_line [alt]) <4:
+                if (splmutect_line [max_af]):
+                    if float (splmutect_line [max_af]) > 0.01:
+                        continue
+            
             if jangerpos_mutect in vardict_dict:
                 newmutlist=vardict_dict [jangerpos_mutect]
                 newmutlist= newmutlist [:-1]
@@ -138,7 +143,7 @@ for mutect_line in mutect_file:
                 vardict_dict [jangerpos_mutect] = newmutlist
 
 
-###### utilisation du dico pour écrire le fichier final
+###### utilisation du dico pour écrire le fichier .CSV final
 
 for e in sorted (vardict_dict) :
 
